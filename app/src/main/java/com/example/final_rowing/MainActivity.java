@@ -3,10 +3,13 @@ package com.example.final_rowing;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.content.Context;
+
 import android.content.DialogInterface;
 import android.database.sqlite.SQLiteDatabase;
-import android.graphics.Color;
+
+
+import android.media.AudioManager;
+import android.media.SoundPool;
 import android.os.Bundle;
 
 import android.hardware.Sensor;
@@ -14,17 +17,17 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 
+import android.os.CountDownTimer;
+import android.os.Vibrator;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.BaseAdapter;
+
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.Locale;
 
 import db.DBHelper;
 import vo.Person;
@@ -32,12 +35,8 @@ import vo.Person;
 import static java.lang.Integer.parseInt;
 
 public class MainActivity extends AppCompatActivity {
-    double time=3;
     int samplingPeriodUs=50000;
-    private float a = 0.1f; // compensation filter coefficient.
 
-    private LinkedList<float[]> list_acc=new LinkedList<float[]>();
-    private LinkedList<float[]> list_mag=new LinkedList<float[]>();
     private float[] mR = new float[9];
     private float[] mOrientation = new float[3];
     private float[] filter_mag = new float[3];
@@ -55,6 +54,11 @@ public class MainActivity extends AppCompatActivity {
     boolean flag_mag = false;
     double pitch = 0, roll = 0;
 
+    String cur_name = "default";
+    boolean record_status = false;
+    int trial = 0;
+    int record_count = 0;
+
     SensorManager SM;
     SensorEventListener sL = new SensorEventListener() {
         @Override
@@ -63,7 +67,6 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onSensorChanged(SensorEvent se) {
-            float[] temp = {se.values[0], se.values[1], se.values[2]};
             switch(se.sensor.getType()){
                 case Sensor.TYPE_ACCELEROMETER:
                     if(!flag_acc) {
@@ -88,9 +91,11 @@ public class MainActivity extends AppCompatActivity {
                 flag_mag = false;
                 if(se.timestamp != 0) {
                     dt = (se.timestamp - timestamp) * NS2S;
-                    filter_temp = (1/a) * (mOrientation[1] - pitch) + filter_gyro[1];
+                    // compensation filter coefficient.
+                    float a = 0.1f;
+                    filter_temp = (1/ a) * (mOrientation[1] - pitch) + filter_gyro[1];
                     pitch = pitch + (filter_temp*dt);
-                    filter_temp = (1/a) * (mOrientation[2] - roll) + filter_gyro[0];
+                    filter_temp = (1/ a) * (mOrientation[2] - roll) + filter_gyro[0];
                     roll = roll + (filter_temp*dt);
                     tv_mag1 = (TextView) findViewById(R.id.debug_mag);
                     tv_mag2 = (TextView) findViewById(R.id.debug_mag2);
@@ -98,15 +103,37 @@ public class MainActivity extends AppCompatActivity {
                     tv_mag1.setText("Pitch"+ result_mag);
                     result_mag = String.valueOf(roll*10);
                     tv_mag2.setText("Roll" + result_mag);
+                    if(record_status && record_count > 0){
+                        Person person = new Person();
+                        person.setName(cur_name);
+                        person.setTimestamp(se.timestamp);
+                        person.setOrientR(roll);
+                        person.setOrientP(pitch);
+                        person.setTrial(trial);
+                        person.setAccX(filter_acc[0]);
+                        person.setAccY(filter_acc[1]);
+                        person.setAccZ(filter_acc[2]);
+                        dbHelper.addPerson(person);
+                        record_count--;
+                        if(record_count % 1000 == 0) {
+                            Vibrator vib = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+                            vib.vibrate(2000);
+//                            SoundPool sound = new SoundPool.Builder()
+//                                    .setMaxStreams(3)
+//                                    .build();
+//                            int soundId = sound.load(this, R.raw.prime, 1);
+//                            sound.play(soundId, 1,1,1,0,1);
+                        }
+                        if(record_count == 0){
+                            record_status = false;
+                        }
+                    }
+
                 }
                 timestamp = se.timestamp;
             }
         }
     };
-    //---------------------DB Variables
-    private Button btnCreateDatabase;
-    private Button btnInsertDatabase;
-    private Button btnSelectAllData;
     private ListView lvPeople;
     private DBHelper dbHelper;
     //---------------------DB Variables
@@ -114,24 +141,53 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        SM = (SensorManager)getSystemService(SENSOR_SERVICE);
-        SM.registerListener(sL, SM.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),samplingPeriodUs);
-        SM.registerListener(sL, SM.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),samplingPeriodUs);
-        SM.registerListener(sL, SM.getDefaultSensor(Sensor.TYPE_GYROSCOPE),samplingPeriodUs);
-        Button bt=(Button)findViewById(R.id.button);
+        SM = (SensorManager) getSystemService(SENSOR_SERVICE);
+        SM.registerListener(sL, SM.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), samplingPeriodUs);
+        SM.registerListener(sL, SM.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), samplingPeriodUs);
+        SM.registerListener(sL, SM.getDefaultSensor(Sensor.TYPE_GYROSCOPE), samplingPeriodUs);
+        Button bt = (Button) findViewById(R.id.button);
         bt.setOnClickListener(new Button.OnClickListener() {
-            public void onClick(View v){
+            public void onClick(View v) {
                 // 시작 카운트
 //                long time1 = System.nanoTime();
 //                long time2 = System.nanoTime();
 //                double latency = (time2-time1) / 1e6;
             }
         });
+        final Button btnStartRecoding = (Button) findViewById(R.id.btnStartRecoding);
+        btnStartRecoding.setOnClickListener(new Button.OnClickListener() {
+            public void onClick(View v) {
+
+                if (record_status) {
+                    record_status = false;
+                    btnStartRecoding.setText("기록시작");
+                } else {
+                    CountDownTimer countDownTimer = new CountDownTimer(3000, 1000) {
+                        public void onTick(long millisUntilFinished) {
+                            Vibrator vib = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+                            vib.vibrate(500);
+                            btnStartRecoding.setText(String.format(Locale.getDefault(), "%d초후 측정이 시작됩니다.", millisUntilFinished / 1000L));
+                        }
+                        public void onFinish() {
+                            record_status = true;
+                            record_count = 90000;
+                            Vibrator vib = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+                            vib.vibrate(2000);
+                            btnStartRecoding.setText("기록종료");
+                        }
+                    }.start();
+                }
+            }
+        });
         //---------------------------------------------DB below
-        btnCreateDatabase = (Button) findViewById(R.id.btnCreateButton);
-        btnCreateDatabase.setOnClickListener(new View.OnClickListener(){
+        //---------------------------------------------DB below
+        //---------------------------------------------DB below
+        //---------------------------------------------DB below
+        //---------------------------------------------DB below
+        Button btnCreateDatabase = (Button) findViewById(R.id.btnCreateButton);
+        btnCreateDatabase.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v){
+            public void onClick(View v) {
                 final EditText etDBName = new EditText(MainActivity.this);
                 etDBName.setHint("DB명을 입력하세여");
 
@@ -139,11 +195,11 @@ public class MainActivity extends AppCompatActivity {
                 dialog.setTitle("Database 이름 입력")
                         .setMessage("Database 이름입력")
                         .setView(etDBName)
-                        .setPositiveButton("생성", new DialogInterface.OnClickListener(){
+                        .setPositiveButton("생성", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                if(etDBName.getText().toString().length() > 0){
-                                    dbHelper= new DBHelper(
+                                if (etDBName.getText().toString().length() > 0) {
+                                    dbHelper = new DBHelper(
                                             MainActivity.this,
                                             etDBName.getText().toString(),
                                             null, 1) {
@@ -167,49 +223,34 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         //----------btnCreate
-        btnInsertDatabase = (Button) findViewById(R.id.btnInsertButton);
+        Button btnInsertDatabase = (Button) findViewById(R.id.btnInsertButton);
         btnInsertDatabase.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
+            @Override
+            public void onClick(View v) {
                 LinearLayout layout = new LinearLayout(MainActivity.this);
                 layout.setOrientation(LinearLayout.VERTICAL);
 
                 final EditText etName = new EditText(MainActivity.this);
                 etName.setHint("이름을 입력하세요.");
 
-                final EditText etAge = new EditText(MainActivity.this);
-                etAge.setHint("나이를 입력하세요.");
+                final EditText etTrial = new EditText(MainActivity.this);
+                etTrial.setHint("몇 번째 시도인가요?");
 
-                final EditText etPhone = new EditText(MainActivity.this);
-                etPhone.setHint("전화번호를 입력하세요.");
                 layout.addView(etName);
-                layout.addView(etAge);
-                layout.addView(etPhone);
+                layout.addView(etTrial);
+
                 AlertDialog.Builder dialog = new AlertDialog.Builder(MainActivity.this);
-                dialog.setTitle("정보를 입력하세요") .setView(layout)
+                dialog.setTitle("정보를 입력하세요").setView(layout)
                         .setPositiveButton("등록", new DialogInterface.OnClickListener() {
-                            @Override public void onClick(DialogInterface dialog, int which) {
-                                String name = etName.getText().toString();
-                                String age = etAge.getText().toString();
-                                String phone = etPhone.getText().toString();
-                                if( dbHelper == null ) {
-                                    dbHelper = new DBHelper(
-                                            MainActivity.this,
-                                            "TEST",
-                                            null, 1){
-                                        @Override
-                                        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-                                        }
-                                    };
-                                }
-                                Person person = new Person();
-                                person.setName(name);
-                                person.setAge(parseInt(age) );
-                                person.setPhone(phone);
-                                dbHelper.addPerson(person);
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                cur_name = etName.getText().toString();
+                                trial = parseInt(etTrial.getText().toString());
                             }
                         })
                         .setNeutralButton("취소", new DialogInterface.OnClickListener() {
-                            @Override public void onClick(DialogInterface dialog, int which) {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
 
                             }
                         })
@@ -217,89 +258,6 @@ public class MainActivity extends AppCompatActivity {
                         .show();
             }
         });
-        lvPeople = (ListView) findViewById(R.id.lvPeople);
-        btnSelectAllData = (Button) findViewById(R.id.btnSelectAllData);
-        btnSelectAllData.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                // ListView를 보여준다.
-                lvPeople.setVisibility(View.VISIBLE);
-                // DB Helper가 Null이면 초기화 시켜준다.
-                if( dbHelper == null ) {
-                    dbHelper = new DBHelper(
-                            MainActivity.this,
-                            "TEST",
-                            null , 1){};
-                }
-                // 1. Person 데이터를 모두 가져온다.
-                List people = dbHelper.getAllPersonData();
-                // 2. ListView에 Person 데이터를 모두 보여준다.
-                lvPeople.setAdapter(new PersonListAdapter(people, MainActivity.this));
-            }
-        });
-    }
-    private class PersonListAdapter extends BaseAdapter {
-        private List people;
-        private Context context;
-        /** * 생성자 * @param people : Person List * @param context */
-        public PersonListAdapter(List people, Context context) {
-            this.people = people; this.context = context;
-        }
-        @Override
-        public int getCount() {
-            return this.people.size();
-        }
-        @Override public Object getItem(int position) {
-            return this.people.get(position);
-        }
-        @Override public long getItemId(int position) {
-            return position;
-        }
-        @Override public View getView(int position, View convertView, ViewGroup parent) {
-            Holder holder = null;
-            if( convertView == null ) {
-                // convertView가 없으면 초기화합니다.
-                convertView = new LinearLayout(context);
-                ((LinearLayout) convertView).setOrientation(LinearLayout.HORIZONTAL);
-                TextView tvId = new TextView(context);
-                tvId.setPadding(10, 0, 20, 0);
-                tvId.setTextColor(Color.rgb(0, 0, 0));
-                TextView tvName = new TextView(context);
-                tvName.setPadding(20, 0, 20, 0);
-                tvName.setTextColor(Color.rgb(0, 0, 0));
-                TextView tvAge = new TextView(context);
-                tvAge.setPadding(20, 0, 20, 0);
-                tvAge.setTextColor(Color.rgb(0, 0, 0));
-                TextView tvPhone = new TextView(context);
-                tvPhone.setPadding(20, 0, 20, 0);
-                tvPhone.setTextColor(Color.rgb(0, 0, 0));
-                ((LinearLayout) convertView).addView(tvId);
-                ((LinearLayout) convertView).addView(tvName);
-                ( (LinearLayout) convertView).addView(tvAge);
-                ( (LinearLayout) convertView).addView(tvPhone);
-                holder = new Holder();
-                holder.tvId = tvId;
-                holder.tvName = tvName;
-                holder.tvAge = tvAge;
-                holder.tvPhone = tvPhone;
-                convertView.setTag(holder);
-            }
-            else {
-//             convertView가 있으면 홀더를 꺼냅니다.
-                holder = (Holder) convertView.getTag();
-            } // 한명의 데이터를 받아와서 입력합니다.
-            Person person = (Person) getItem(position);
-            holder.tvId.setText(person.get_id() + "");
-            holder.tvName.setText(person.getName());
-            holder.tvAge.setText(person.getAge() + "");
-            holder.tvPhone.setText(person.getPhone());
-            return convertView;
-        }
-    } /** * 홀더 */
-    private class Holder {
-        public TextView tvId;
-        public TextView tvName;
-        public TextView tvAge;
-        public TextView tvPhone;
     }
 }
 

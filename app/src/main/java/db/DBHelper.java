@@ -13,7 +13,7 @@ import java.util.List;
 import vo.Person;
 
 public abstract class DBHelper extends SQLiteOpenHelper {
-    public static final int DB_VERSION = 2;
+    public static final int DB_VERSION = 3;
     private Context context;
 
     public DBHelper(Context context, String name, SQLiteDatabase.CursorFactory factory, int version){
@@ -27,8 +27,13 @@ public abstract class DBHelper extends SQLiteOpenHelper {
         sb.append(" CREATE TABLE TEST_TABLE ( ");
         sb.append(" _ID INTEGER PRIMARY KEY AUTOINCREMENT, ");
         sb.append(" NAME TEXT, ");
-        sb.append(" AGE INTEGER, ");
-        sb.append(" PHONE TEXT ) ");
+        sb.append(" TRIAL INTEGER, ");
+        sb.append(" TIMESTAMP REAL, ");
+        sb.append(" ORIENTR REAL, ");
+        sb.append(" ORIENTP REAL, ");
+        sb.append(" ACCX REAL, ");
+        sb.append(" ACCY REAL, ");
+        sb.append(" ACCZ REAL ) ");
 
         db.execSQL(sb.toString());
 
@@ -46,17 +51,22 @@ public abstract class DBHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
         StringBuffer sb = new StringBuffer();
         sb.append(" INSERT INTO TEST_TABLE ( ");
-        sb.append(" NAME, AGE, PHONE ) ");
-        sb.append(" VALUES ( ?, ?, ? ) ");
+        sb.append(" NAME, TRIAL, TIMESTAMP, ORIENTR, ORIENTP, ACCX, ACCY, ACCZ ) ");
+        sb.append(" VALUES ( ?, ?, ?, ?, ?, ?, ?, ?) ");
         db.execSQL(sb.toString(),
                 new Object[]{ person.getName(),
-                        person.getAge(),
-                        person.getPhone()});
+                        person.getTrial(),
+                        person.getTimestamp(),
+                        person.getOrientR(),
+                        person.getOrientP(),
+                        person.getAccX(),
+                        person.getAccY(),
+                        person.getAccZ()});
         Toast.makeText(context, "Insert 완료", Toast.LENGTH_SHORT).show();
     }
     public List getAllPersonData(){
         StringBuffer sb = new StringBuffer();
-        sb.append(" SELECT _ID, NAME, AGE, PHONE FROM TEST_TABLE ");
+        sb.append(" SELECT _ID, NAME, TRIAL, TIMESTAMP, ORIENTR, ORIENTP FROM TEST_TABLE ");
         // 읽기 전용 DB 객체를 만든다.
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.rawQuery(sb.toString(), null);
@@ -67,8 +77,10 @@ public abstract class DBHelper extends SQLiteOpenHelper {
             person = new Person();
             person.set_id(cursor.getInt(0));
             person.setName(cursor.getString(1));
-            person.setAge(cursor.getInt(2));
-            person.setPhone(cursor.getString(3));
+            person.setTrial(cursor.getInt(2));
+            person.setTimestamp(cursor.getDouble(3));
+            person.setOrientR(cursor.getDouble(4));
+            person.setOrientP(cursor.getDouble(5));
             people.add(person);
         }
         return people;

@@ -67,11 +67,6 @@
         android:layout_height="match_parent"
         tools:context="com.ktds.cocomo.mydatabase.MainActivity">
 
-        <Button
-            android:id="@+id/btnCreateButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            />
     </LinearLayout>
 
     <LinearLayout
@@ -95,11 +90,10 @@
 
         <!-- Data 가져오기 버튼 -->
         <Button
-            android:id="@+id/btnSelectAllData"
+            android:id="@+id/btnStartRecoding"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Data 가져오기" />
-
+            android:text="기록시작" />
     </LinearLayout>
 
     <ListView
