@@ -166,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
                         public void onTick(long millisUntilFinished) {
                             Vibrator vib = (Vibrator) getSystemService(VIBRATOR_SERVICE);
                             vib.vibrate(500);
-                            btnStartRecoding.setText(String.format(Locale.getDefault(), "%d초후 측정이 시작됩니다.", millisUntilFinished / 1000L));
+                            btnStartRecoding.setText(String.format(Locale.getDefault(), "%d초후 측정이 시작됩니다.", 1+ millisUntilFinished / 1000L));
                         }
                         public void onFinish() {
                             record_status = true;
