@@ -39,10 +39,8 @@ public class MainActivity extends AppCompatActivity {
 
     private LinkedList<double[]> sensor_data=new LinkedList<double[]>();
 
-    TextView tv_mag1;
     TextView tv_mag2;
-    TextView tv_flag1;
-    TextView tv_flag2;
+
     String result_mag;
     double timestamp;
     double timestamp_init = 0;
@@ -53,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
     boolean flag_mag = false;
 
     boolean flag_running = false;
-    double pitch = 0, roll = 0;
+    double roll = 0;
 
     boolean flag_lean = false;
     boolean flag_recovery = false;
@@ -114,14 +112,11 @@ public class MainActivity extends AppCompatActivity {
                     dt = (se.timestamp - timestamp) * NS2S;
                     // compensation filter coefficient.
                     float a = 0.1f;
-                    filter_temp = (1/ a) * (mOrientation[1] - pitch) + filter_acc[1];
-                    pitch = pitch + (filter_temp*dt);
                     filter_temp = (1/ a) * (mOrientation[2] - roll) + filter_gyro[0];
                     roll = roll + (filter_temp*dt);
-                    tv_mag1 = findViewById(R.id.debug_mag);
+
                     tv_mag2 = findViewById(R.id.debug_mag2);
-                    tv_flag1 = findViewById(R.id.debug_flag);
-                    tv_flag2 = findViewById(R.id.debug_flag1);
+
                     if(!flag_running && (roll < -1.55334 && roll > -1.58825)){
                         vib.vibrate(100); // posture correction
                     }
@@ -134,24 +129,21 @@ public class MainActivity extends AppCompatActivity {
                         sensor_data.remove();
                     }
                     if(flag_running) {
-                        double[] lm_t1 = sensor_data.get(0);
                         double[] lm_t2 = sensor_data.get(1);
                         double[] lm_t3 = sensor_data.get(2);
-                        if (roll > -1.52) { // 뒤로 재꼈을 때 local max값 보정 80도 기준
+                        if (roll > -1.52) { // 80degree
                             if(Math.abs(lm_t3[0]-lm_t2[0])<1.0) { // filtering noise
                                     lean_avgt += lm_t3[0];
                                     lean_count++;
                                     flag_lean = true;
                             }
-                            if (flag_recovery) { // 쑤그렸다가 허리가 뒤로 나갈 때
+                            if (flag_recovery) {
                                 flag_recovery = false;
                                 recovery_max = recovery_temp;
                                 Log.e("LOG", "RECOVERY:" + String.format("%d", (int) (-(90+Math.toDegrees(fmax)))));
                                 Log.e("LOG", "RECOVERY:" + String.format("%d", (int)(-(90+Math.toDegrees(recovery_max[0])))));
                                 Log.e("LOG", "RECOVERY:" + String.format("%d", (int)(-(90+Math.toDegrees(fmin)))));
                                 if (recovery_max[0] <  fmax || recovery_max[0] > fmin) {
-                                    result_mag = "너무 많이 숙였어";
-                                    tv_mag1.setText(result_mag);
                                     sp.play(s2,1f,1f,0,0,1f);
                                 }
                                 else{
