@@ -4,7 +4,7 @@
 daebalprime@unist.ac.kr
 
 
-- [APK](https://github.com/daebalprime/UNI19FF_CSE465_FinalProject/blob/final_rowing.apk)
+- [APK](https://github.com/daebalprime/UNI19FF_CSE465_FinalProject/blob/master/final_rowing.apk)
 - [DEMO Video](https://github.com/daebalprime/UNI19FF_CSE465_FinalProject/blob/master/20131054_CSE465_DEMO.mp4)
     - [Video Materials : PPT](https://github.com/daebalprime/UNI19FF_CSE465_FinalProject/vid_ppt.pptx)
 
